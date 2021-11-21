@@ -4,9 +4,32 @@ const app = express()
 const {bots, playerRecord} = require('./data')
 const {shuffleArray} = require('./utils')
 
+
+var Rollbar = require('rollbar')
+var rollbar = new Rollbar({
+  accessToken: 'cb79a45167a749c2bba4de95ac7cbb46',
+  captureUncaught: true,
+  captureUnhandledRejections: true,
+})
+
+rollbar.log('Hello world!')
+
+
+
 app.use(express.json())
 
+app.use(express.static("public"));
+
+app.get("/styles", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.css"));
+});
+app.get("/js", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.js"));
+});
+
+
 app.get('/api/robots', (req, res) => {
+    rollbar.info('there is an error getting bots')
     try {
         res.status(200).send(botsArr)
     } catch (error) {
@@ -20,6 +43,7 @@ app.get('/api/robots/five', (req, res) => {
         let shuffled = shuffleArray(bots)
         let choices = shuffled.slice(0, 5)
         let compDuo = shuffled.slice(6, 8)
+        rollbar.info('bots have populated')
         res.status(200).send({choices, compDuo})
     } catch (error) {
         console.log('ERROR GETTING FIVE BOTS', error)
@@ -47,12 +71,14 @@ app.post('/api/duel', (req, res) => {
         // comparing the total health to determine a winner
         if (compHealthAfterAttack > playerHealthAfterAttack) {
             playerRecord.losses++
+            rollbar.log('player has lost successfully', {author: 'mike', type:'manual entry'})
             res.status(200).send('You lost!')
         } else {
             playerRecord.losses++
             res.status(200).send('You won!')
         }
     } catch (error) {
+        rollbar.error('error dueling')
         console.log('ERROR DUELING', error)
         res.sendStatus(400)
     }
@@ -62,6 +88,7 @@ app.get('/api/player', (req, res) => {
     try {
         res.status(200).send(playerRecord)
     } catch (error) {
+        rollbar.error('could not get stats')
         console.log('ERROR GETTING PLAYER STATS', error)
         res.sendStatus(400)
     }
@@ -72,3 +99,4 @@ const port = process.env.PORT || 3000
 app.listen(port, () => {
   console.log(`Listening on port ${port}`)
 })
+app.use(rollbar.errorHandler())
